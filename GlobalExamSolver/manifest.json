@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "GlobalExam Auto-Answer",
+  "version": "1.3",
+  "description": "Automatise les réponses sur GlobalExam.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*.global-exam.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://*.global-exam.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "GlobalExam Bot"
+  }
+}
