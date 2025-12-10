@@ -18,65 +18,114 @@ function createOverlay() {
     div.style.zIndex = '9999';
     div.style.backgroundColor = '#1e1e1e';
     div.style.color = '#fff';
-    div.style.padding = '10px';
-    div.style.borderRadius = '8px';
+    div.style.padding = '8px';
+    div.style.borderRadius = '6px';
     div.style.boxShadow = '0 4px 6px rgba(0,0,0,0.3)';
     div.style.fontFamily = 'Arial, sans-serif';
-    div.style.fontSize = '12px';
+    div.style.fontSize = '11px';
+    div.style.maxWidth = '150px';
 
     div.innerHTML = `
-    <div style="margin-bottom: 5px; font-weight: bold;">GE Bot v1.2</div>
-    <div style="display:flex; gap:5px; margin-bottom:5px;">
-        <button id="ge-btn-solve" style="flex:1; cursor:pointer; background:#4CAF50; color:white; border:none; padding:5px; border-radius:4px;">Find Answer</button>
-        <button id="ge-btn-auto" style="flex:1; cursor:pointer; background:#555; color:white; border:none; padding:5px; border-radius:4px;">Auto: OFF</button>
-    </div>
-    <button id="ge-btn-debug" style="width:100%; cursor:pointer; background:#f0ad4e; color:white; border:none; padding:5px; border-radius:4px;">Copy Data to Console</button>
-  `;
+    <div style="font-weight:bold; font-size:10px; margin-bottom:4px; text-align:center;">GE-Bot v1.4</div>
+    `;
+
+    // Help/Debug Button
+    const infoBtn = document.createElement('button');
+    infoBtn.textContent = 'Copy Data';
+    infoBtn.style.padding = '3px';
+    infoBtn.style.backgroundColor = '#FFC107';
+    infoBtn.style.color = '#333';
+    infoBtn.style.border = 'none';
+    infoBtn.style.borderRadius = '3px';
+    infoBtn.style.cursor = 'pointer';
+    infoBtn.style.fontSize = '10px';
+    infoBtn.style.fontWeight = 'bold';
+    infoBtn.style.marginBottom = '4px';
+    infoBtn.style.width = '100%';
+    infoBtn.onclick = () => {
+        const data = getInertiaData();
+        console.log('--- USER REQUESTED FULL DATA DUMP ---');
+        console.log(JSON.stringify(data ? data.props : {}, null, 2));
+        alert('Data dump copied to Console (F12).');
+    };
+    div.appendChild(infoBtn);
+
+    const btn = document.createElement('button');
+    btn.innerHTML = 'Find';
+    btn.id = 'ge-btn-solve';
+    btn.style.height = '24px';
+    btn.style.padding = '2px';
+    btn.style.backgroundColor = '#4CAF50';
+    btn.style.color = 'white';
+    btn.style.border = 'none';
+    btn.style.borderRadius = '3px';
+    btn.style.cursor = 'pointer';
+    btn.style.fontSize = '11px';
+    btn.style.flex = '1';
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.textContent = 'Auto: OFF';
+    toggleBtn.id = 'ge-btn-auto';
+    toggleBtn.style.padding = '2px';
+    toggleBtn.style.backgroundColor = '#555';
+    toggleBtn.style.color = 'white';
+    toggleBtn.style.border = 'none';
+    toggleBtn.style.borderRadius = '3px';
+    toggleBtn.style.cursor = 'pointer';
+    toggleBtn.style.fontSize = '10px';
+    toggleBtn.style.flex = '1';
+
+    const btnContainer = document.createElement('div');
+    btnContainer.style.display = 'flex';
+    btnContainer.style.gap = '3px';
+    btnContainer.appendChild(btn);
+    btnContainer.appendChild(toggleBtn);
+    div.appendChild(btnContainer);
 
     document.body.appendChild(div);
 
     document.getElementById('ge-btn-solve').addEventListener('click', solveCurrentQuestion);
     document.getElementById('ge-btn-auto').addEventListener('click', (e) => {
         autoMode = !autoMode;
-        e.target.innerText = `Auto: ${autoMode ? 'ON' : 'OFF'}`;
+        e.target.innerText = `Auto: ${autoMode ? 'ON' : 'OFF'} `;
         e.target.style.background = autoMode ? '#2196F3' : '#555';
         if (autoMode) solveCurrentQuestion();
-    });
-    document.getElementById('ge-btn-debug').addEventListener('click', () => {
-        const data = getInertiaData();
-        console.log('GE-Bot Data Dump:', data);
-
-        // Also dump DOM structure of potential containers
-        const app = document.getElementById('app');
-        if (app) {
-            console.log('--- DOM DUMP (App) ---');
-            // Truncate to avoid massive spam, but getting class names is key
-            const html = app.innerHTML; // .replace(/<path[^>]*>/g, '<path ...>'); 
-            console.log(html.substring(0, 10000)); // First 10k chars might contain the active question
-            console.log('--- END DOM DUMP ---');
-        }
-
-        alert('Data & DOM dumped to console. Check F12.');
     });
 }
 
 // 2. Data Extraction
 function getInertiaData() {
-    // 1. Try history.state (Inertia updates this on navigation, usually freshest)
-    if (history.state && history.state.props) {
-        console.log('GE-Bot: Retrieved data from history.state');
-        return history.state;
-    }
-    if (history.state && history.state.page) {
-        console.log('GE-Bot: Retrieved data from history.state.page');
-        return history.state.page;
+    let data = null;
+    const currentUrl = window.location.href;
+
+    // 1. Try history.state checks
+    if (history.state && (history.state.props || history.state.page)) {
+        data = history.state.props ? history.state : history.state.page;
+        // Robustness: URL in data usually under data.props.url or similar
+        // We do a loose check. If data has a 'url' property, check if current URL contains it.
+        // Or if data.props.meta.page_url exists.
+
+        let dataUrl = data.url || (data.props && data.props.url) || (data.props && data.props.meta && data.props.meta.page_url) || null;
+
+        // Normalize URLs for comparison (remove domain, query params if needed)
+        // For now, simple inclusion check. 
+        // If dataUrl exists and currentUrl does NOT include it, we have a mismatch.
+
+        if (dataUrl && !currentUrl.includes(dataUrl.replace(/https?:\/\/[^\/]+/, ''))) {
+            log('WARNING: history.state URL mismatch. Data might be stale.', { dataUrl, currentUrl });
+        } else {
+            console.log('GE-Bot: Retrieved data from history.state (Matched)');
+            return data;
+        }
     }
 
-    // 2. Fallback to DOM attribute
+    // 2. Fallback to DOM attribute (Often more reliable for current view initial load)
     const app = document.getElementById('app');
     if (!app || !app.dataset.page) return null;
     try {
-        return JSON.parse(app.dataset.page);
+        const domData = JSON.parse(app.dataset.page);
+        console.log('GE-Bot: Retrieved data from DOM data-page (Fallback)');
+        return domData;
     } catch (e) {
         log('Error parsing data-page', e);
         return null;
@@ -88,13 +137,6 @@ async function solveCurrentQuestion() {
     const data = getInertiaData();
     if (!data) {
         log('No data found.');
-        return;
-    }
-
-    // 3.1 explicit correction page handling
-    if (data.component === 'activity/pages/correction' || data.url.endsWith('/correction')) {
-        log('Correction page detected. Skipping question search and clicking Continue.');
-        clickContinue();
         return;
     }
 
@@ -126,7 +168,20 @@ async function solveCurrentQuestion() {
             return found;
         };
 
-        const potentialQuestions = deepFindQuestions(data.props);
+        // Explicitly search examSupports as well
+        let roots = [data.props];
+        if (data.props.examSupports && data.props.examSupports.data) {
+            roots.push(data.props.examSupports.data);
+        }
+
+        let potentialQuestions = [];
+        for (const r of roots) {
+            potentialQuestions = potentialQuestions.concat(deepFindQuestions(r));
+        }
+
+        // Deduplicate
+        potentialQuestions = [...new Set(potentialQuestions)];
+
         if (potentialQuestions.length > 0) {
             log(`Deep Search found ${potentialQuestions.length} potential hidden questions.`);
             questions = potentialQuestions;
@@ -134,6 +189,13 @@ async function solveCurrentQuestion() {
     }
 
     if (questions.length === 0) {
+        // 3.1 explicit correction page handling (Fallback)
+        if (data.component === 'activity/pages/correction' || (data.url && data.url.endsWith('/correction'))) {
+            log('Correction page detected (and no questions found). Skipping question search and clicking Continue.');
+            clickContinue();
+            return;
+        }
+
         // SAFETY CHECK: Does the DOM contain inputs?
         // Added input:not(...) to catch standard text inputs key for FILL_IN_THE_BLANK
         const inputs = document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]), textarea, .draggable-item');
@@ -161,7 +223,7 @@ async function solveCurrentQuestion() {
     // or we need to find the one matching the numbering.
     // For simplicity, we process ALL questions found in the data (usually just 1).
     for (const q of questions) {
-        log(`Processing question ID=${q.id} Type=${q.exam_question_type_code}`);
+        log(`Processing question ID = ${q.id} Type = ${q.exam_question_type_code}`);
 
         const answers = q.exam_answers || q.answers || [];
         if (!answers.length) {
@@ -231,11 +293,15 @@ async function solveCurrentQuestion() {
                 const slot = slots[i]; // Assumption: DOM order matches Logical Order
 
                 if (ans && slot) {
-                    log(`Processing Item ${i + 1}: ID=${ans.id} -> Slot ${i + 1}`);
+                    log(`Processing Item ${i + 1}: ID = ${ans.id} -> Slot ${i + 1}`);
                     const source = await findElementForAnswer(ans);
 
                     if (source) {
-                        await simulateDragAndDrop(source, slot);
+                        // Strategy: Click Source then Click Target (More robust than DnD for these frameworks)
+                        log('Attempting Click-Sequence (Source -> Target)...');
+                        await clickElement(source);
+                        await new Promise(r => setTimeout(r, 300)); // Wait for selection state
+                        await clickElement(slot);
                         await new Promise(r => setTimeout(r, 600)); // Wait for animation
                     } else {
                         log(`Source element not found for answer ${ans.id}`);
@@ -289,8 +355,8 @@ async function solveCurrentQuestion() {
                 }
             }
 
-        } else if (type === 'FILL_IN_THE_BLANK' || type === 'GAP_FILL') {
-            log('Detected FILL_IN_THE_BLANK. Typing answers...');
+        } else if (type === 'FILL_IN_THE_BLANK' || type === 'GAP_FILL' || type === 'FILL_BLANK_RECON') {
+            log(`Detected ${type}. Typing answers...`);
             let correctAnswers = answers.filter(a =>
                 a.is_correct === true || a.is_correct === 1 ||
                 a.correct === true || a.correct === 1 ||
@@ -315,7 +381,7 @@ async function solveCurrentQuestion() {
 
         if (targets.length === 0 &&
             type !== 'ASSOCIATE' && type !== 'MATCHING' && type !== 'ASSOCIATE_WORD' && type !== 'ASSOCIATION' &&
-            type !== 'FILL_IN_THE_BLANK' && type !== 'GAP_FILL' && type !== 'FILL_BLANK_SELECT' && type !== 'FILL_BLANK_DRAG') {
+            type !== 'FILL_IN_THE_BLANK' && type !== 'GAP_FILL' && type !== 'FILL_BLANK_RECON' && type !== 'FILL_BLANK_SELECT' && type !== 'FILL_BLANK_DRAG') {
 
             log(`CRITICAL: No correct answer targets identified for Q:${q.id} Type=${type}`);
             console.log('--- DEBUG: Question & Answers dump ---');
@@ -348,6 +414,7 @@ async function findElementForAnswer(answerObj) {
     // Selectors priority
     let el =
         document.querySelector(`input[value="${id}"]`) ||
+        document.querySelector(`input[id*="-${id}"]`) || // ID pattern match for radio-xxxxx-ID
         document.querySelector(`div[data-id="${id}"]`) ||
         document.querySelector(`button[data-id="${id}"]`) ||
         document.querySelector(`span[data-id="${id}"]`) ||
@@ -362,11 +429,11 @@ async function findElementForAnswer(answerObj) {
         // Strategy: Direct Text Match
         if (plainText) {
             // Expand to all feasible clickable elements + generic containers
-            const allElements = document.querySelectorAll('div, span, p, label, button, a, h3, h4, li');
+            const allElements = document.querySelectorAll('div, span, p, label, button, a, h3, h4, li, .draggable-item, [draggable="true"]');
 
             for (const domEl of allElements) {
                 // Efficiency check
-                if (domEl.innerText.length > 100 || domEl.offsetParent === null) continue;
+                if (domEl.innerText.length > 200 || domEl.offsetParent === null) continue;
 
                 const t = domEl.innerText.trim();
                 const tLower = t.toLowerCase();
@@ -384,10 +451,20 @@ async function findElementForAnswer(answerObj) {
                 }
 
                 // 3. Partial Match for short words like "True"/"False" if it's the ONLY text
-                // e.g. <button> <span>True</span> </button>
                 if ((plainText === 'True' || plainText === 'False') && t.includes(plainText) && t.length < 15) {
                     el = domEl;
                     break;
+                }
+
+                // 4. SORTING specific: Match partial content if it's a draggable item
+                // Sometimes the item text has newlines or extra spaces
+                if ((domEl.classList.contains('draggable-item') || domEl.getAttribute('draggable') === 'true') &&
+                    tLower.includes(lowerText)) {
+                    // Check if it's not a container for multiple items
+                    if (domEl.querySelectorAll('.draggable-item').length === 0) {
+                        el = domEl;
+                        break;
+                    }
                 }
             }
         }
@@ -396,81 +473,99 @@ async function findElementForAnswer(answerObj) {
 }
 
 // Main interaction helper
-// Main interaction helper
 async function clickElement(el) {
     if (!el) return;
 
     // Highlight
-    el.style.border = "3px solid #ff00ff";
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    try {
+        el.style.border = "3px solid #ff00ff";
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (e) { /* ignore if hidden */ }
 
     // Allow UI to settle
     await new Promise(r => setTimeout(r, 50));
 
+    // Special handling for Inputs (even hidden ones like sr-only radios)
     if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+        log('Target is INPUT, executing direct click/focus sequence.');
         el.focus();
         el.click();
+        el.dispatchEvent(new Event('input', { bubbles: true }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
-        log('Clicked INPUT directly.');
-    } else {
-        // Calculate center coordinates
-        const rect = el.getBoundingClientRect();
-        const clientX = rect.left + rect.width / 2;
-        const clientY = rect.top + rect.height / 2;
 
-        // Common options with coordinates
-        const opts = {
-            bubbles: true,
-            cancelable: true,
-            view: window,
-            clientX: clientX,
-            clientY: clientY,
-            screenX: clientX + (window.screenX || 0),
-            screenY: clientY + (window.screenY || 0)
-        };
-
-        const downOpts = { ...opts, buttons: 1, pressure: 0.5 };
-        const upOpts = { ...opts, buttons: 0, pressure: 0 };
-
-        // Real sequence
-        el.dispatchEvent(new PointerEvent('pointerover', opts));
-        el.dispatchEvent(new MouseEvent('mouseover', opts));
-        el.dispatchEvent(new PointerEvent('pointerenter', opts));
-        el.dispatchEvent(new MouseEvent('mouseenter', opts));
-
-        // Down
-        el.dispatchEvent(new PointerEvent('pointerdown', downOpts));
-        el.dispatchEvent(new MouseEvent('mousedown', downOpts));
-        el.focus();
-
-        await new Promise(r => setTimeout(r, 20)); // Short hold
-
-        // Up
-        el.dispatchEvent(new PointerEvent('pointerup', upOpts));
-        el.dispatchEvent(new MouseEvent('mouseup', upOpts));
-
-        // Click
-        el.dispatchEvent(new PointerEvent('click', opts));
-        el.dispatchEvent(new MouseEvent('click', opts));
-
-        // Fallback: Click closest interactive parent if we targeted a generic container
-        if (!['BUTTON', 'A', 'INPUT', 'TEXTAREA'].includes(el.tagName) && !el.classList.contains('draggable-item')) {
-            let parent = el.parentElement;
-            for (let i = 0; i < 3; i++) { // Try up to 3 levels up
-                if (parent) {
-                    log(`Bubbling click to parent L${i + 1}: ${parent.tagName}`, parent);
-
-                    const pRect = parent.getBoundingClientRect();
-                    const pX = pRect.left + pRect.width / 2;
-                    const pY = pRect.top + pRect.height / 2;
-                    const pOpts = { ...opts, clientX: pX, clientY: pY };
-
-                    parent.dispatchEvent(new MouseEvent('click', pOpts));
-                    if (['BUTTON', 'A'].includes(parent.tagName)) parent.click();
-
-                    parent = parent.parentElement;
-                    await new Promise(r => setTimeout(r, 50));
+        // If it's a radio/checkbox and hidden, try clicking its label too
+        if ((el.type === 'radio' || el.type === 'checkbox') && el.offsetParent === null && el.id) {
+            const label = document.querySelector(`label[for="${el.id}"]`);
+            if (label) {
+                log('Input is hidden, clicking associated label.', label);
+                label.click();
+            } else {
+                // Try clicking parent if it's a label
+                if (el.parentElement && el.parentElement.tagName === 'LABEL') {
+                    el.parentElement.click();
                 }
+            }
+        }
+        return;
+    }
+
+    // Calculate center coordinates
+    const rect = el.getBoundingClientRect();
+    const clientX = rect.left + rect.width / 2;
+    const clientY = rect.top + rect.height / 2;
+
+    // Common options with coordinates
+    const opts = {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+        clientX: clientX,
+        clientY: clientY,
+        screenX: clientX + (window.screenX || 0),
+        screenY: clientY + (window.screenY || 0)
+    };
+
+    const downOpts = { ...opts, buttons: 1, pressure: 0.5 };
+    const upOpts = { ...opts, buttons: 0, pressure: 0 };
+
+    // Real sequence
+    el.dispatchEvent(new PointerEvent('pointerover', opts));
+    el.dispatchEvent(new MouseEvent('mouseover', opts));
+    el.dispatchEvent(new PointerEvent('pointerenter', opts));
+    el.dispatchEvent(new MouseEvent('mouseenter', opts));
+
+    // Down
+    el.dispatchEvent(new PointerEvent('pointerdown', downOpts));
+    el.dispatchEvent(new MouseEvent('mousedown', downOpts));
+    el.focus();
+
+    await new Promise(r => setTimeout(r, 20)); // Short hold
+
+    // Up
+    el.dispatchEvent(new PointerEvent('pointerup', upOpts));
+    el.dispatchEvent(new MouseEvent('mouseup', upOpts));
+
+    // Click
+    el.dispatchEvent(new PointerEvent('click', opts));
+    el.dispatchEvent(new MouseEvent('click', opts));
+
+    // Fallback: Click closest interactive parent if we targeted a generic container
+    if (!['BUTTON', 'A', 'INPUT', 'TEXTAREA'].includes(el.tagName) && !el.classList.contains('draggable-item')) {
+        let parent = el.parentElement;
+        for (let i = 0; i < 3; i++) { // Try up to 3 levels up
+            if (parent) {
+                log(`Bubbling click to parent L${i + 1}: ${parent.tagName}`, parent);
+
+                const pRect = parent.getBoundingClientRect();
+                const pX = pRect.left + pRect.width / 2;
+                const pY = pRect.top + pRect.height / 2;
+                const pOpts = { ...opts, clientX: pX, clientY: pY };
+
+                parent.dispatchEvent(new MouseEvent('click', pOpts));
+                if (['BUTTON', 'A'].includes(parent.tagName)) parent.click();
+
+                parent = parent.parentElement;
+                await new Promise(r => setTimeout(r, 50));
             }
         }
     }
@@ -645,7 +740,7 @@ async function clickContinue() {
 
         attempt++;
         if (attempt < maxRetries) {
-            log(`Continue button not found, retrying (${attempt}/${maxRetries})...`);
+            log(`Continue button not found, retrying(${attempt}/${maxRetries})...`);
             setTimeout(loop, 500);
         } else {
             log('Continue button not found after multiple retries. Dumping buttons for debug:');
