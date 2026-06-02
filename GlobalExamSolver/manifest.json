@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GlobalExam Solver",
-  "version": "1.3",
+  "version": "0.1.0",
   "description": "Automatise les réponses sur GlobalExam.",
   "permissions": [
     "activeTab",
@@ -14,7 +14,13 @@
   "content_scripts": [
     {
       "matches": ["*://*.global-exam.com/*"],
-      "js": ["content.js"],
+      "js": ["main-world.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["*://*.global-exam.com/*"],
+      "js": ["content.js", "data.js", "interactions.js", "solver.js", "ui.js"],
       "run_at": "document_idle"
     }
   ],

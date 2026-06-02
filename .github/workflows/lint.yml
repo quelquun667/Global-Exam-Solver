@@ -1,0 +1,56 @@
+name: Lint
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate manifest.json structure
+        run: |
+          set -euo pipefail
+          MANIFEST=GlobalExamSolver/manifest.json
+          jq empty "$MANIFEST"
+
+          MV=$(jq -r '.manifest_version' "$MANIFEST")
+          if [ "$MV" != "3" ]; then
+            echo "::error::manifest_version must be 3, got $MV"
+            exit 1
+          fi
+
+          VERSION=$(jq -r '.version' "$MANIFEST")
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::version must be MAJOR.MINOR.PATCH (got $VERSION)"
+            exit 1
+          fi
+
+          missing=0
+          while IFS= read -r f; do
+            if [ ! -f "GlobalExamSolver/$f" ]; then
+              echo "::error::content script declared in manifest but missing: $f"
+              missing=1
+            fi
+          done < <(jq -r '.content_scripts[].js[]' "$MANIFEST")
+          if [ "$missing" = "1" ]; then exit 1; fi
+
+          echo "manifest.json OK (v$VERSION)"
+
+  syntax-check-js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check JS syntax
+        run: |
+          for f in GlobalExamSolver/*.js; do
+            echo "Checking $f"
+            node --check "$f"
+          done
