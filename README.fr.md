@@ -36,7 +36,7 @@ L'extension n'est **pas** publiée sur le Chrome Web Store. Il faut la charger m
 
 ### Option 1 — Depuis une release `.zip`
 
-1. Téléchargez le dernier `globalexam-solver-vX.Y.Z.zip` depuis la [page Releases](https://github.com/quelquun667/GlobalExamSolver/releases).
+1. Téléchargez le dernier `globalexam-solver-vX.Y.Z.zip` depuis la [page Releases](https://github.com/quelquun667/Global-Exam-Solver/releases).
 2. Décompressez-le où vous voulez sur votre disque.
 3. Ouvrez `chrome://extensions`, activez le **Mode développeur** (en haut à droite).
 4. Cliquez sur **Charger l'extension non empaquetée** et sélectionnez le dossier décompressé.
@@ -44,7 +44,7 @@ L'extension n'est **pas** publiée sur le Chrome Web Store. Il faut la charger m
 ### Option 2 — Depuis les sources
 
 ```bash
-git clone https://github.com/quelquun667/GlobalExamSolver.git
+git clone https://github.com/quelquun667/Global-Exam-Solver.git
 ```
 
 Puis **Charger l'extension non empaquetée** et sélectionnez le sous-dossier `GlobalExamSolver/`.
